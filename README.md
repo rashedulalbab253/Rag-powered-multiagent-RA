@@ -1,215 +1,248 @@
-# Context Engineering Pipeline for Research Assistant
+# 🔬 RAG-Powered Multi-Agent Research Assistant
 
-A comprehensive research assistant that combines multiple AI agents using CrewAI Flows to provide intelligent, multi-source responses to research queries.
+> A production-grade, multi-agent AI Research Assistant powered by **CrewAI Flows**, a **FastAPI** backend, and a premium **HTML/CSS frontend**. It simultaneously queries your documents, persistent memory, real-time web, and academic papers to synthesize a single coherent, cited response.
 
-## Architecture Overview
-
-This research assistant uses a multi-agent CrewAI Flow architecture with the following components:
-
-### Core Components
-
-1. **Document Processing & RAG Pipeline**
-   - TensorLake for complex document parsing with structured extraction
-   - Voyage Context 3 embeddings for contextualized semantic understanding
-   - Milvus vector database for efficient similarity search
-   - OpenAI GPT models with structured output formatting
-
-2. **Memory Layer**
-   - Zep Cloud for persistent conversation memory
-   - User preference tracking
-   - Conversation summarization and context retrieval
-
-3. **Web Search Integration**
-   - Firecrawl for real-time web search capabilities
-   - Retrieval of recent information not available in documents
-
-4. **Multi-Agent Flow Architecture**
-   - **RAG Agent**: Searches through parsed research documents
-   - **Memory Agent**: Retrieves conversation history and user preferences
-   - **Web Search Agent**: Finds recent web-based information
-   - **Tool Calling Agent**: Interfaces with external APIs (extensible)
-   - **Evaluator Agent**: Filters and ranks context relevance
-   - **Synthesizer Agent**: Creates coherent final responses
-
-## Flow Process
-
-```mermaid
-graph TD
-    A["User Query"] --> B["ResearchAssistantFlow<br/>Entry Point"]
-    B --> C["Parallel Agent Execution"]
-    
-    C --> D["RAG Agent<br/>📚 Document Search"]
-    C --> E["Memory Agent<br/>🧠 Context Retrieval"]
-    C --> F["Web Search Agent<br/>🌐 Real-time Info"]
-    C --> G["Tool Calling Agent<br/>🔧 External APIs"]
-    
-    D --> H["Context Collection<br/>📊 Aggregate Results"]
-    E --> H
-    F --> H
-    G --> H
-    
-    H --> I["Evaluator Agent<br/>🎯 Filter Relevance"]
-    I --> J["Synthesizer Agent<br/>✍️ Generate Response"]
-    J --> K["Final Response<br/>📝 Coherent Answer"]
-    
-    subgraph "RAG Pipeline Components"
-        D1["TensorLake<br/>Document Parser"] --> D2["Voyage Context 3<br/>Embeddings"]
-        D2 --> D3["Milvus Vector DB<br/>Similarity Search"]
-        D3 --> D
-    end
-    
-    subgraph "Memory Components"
-        E1["Zep Cloud<br/>Conversation History"] --> E
-        E2["User Preferences<br/>Context Summaries"] --> E
-    end
-    
-    subgraph "Generation"
-        J1["OpenAI GPT<br/>Structured Output"] --> J
-        J2["Citation Management<br/>Confidence Scoring"] --> J
-    end
-    
-    style A fill:#e1f5fe
-    style K fill:#e8f5e8
-    style I fill:#fff3e0
-    style J fill:#f3e5f5
-```
-
-## Project Structure
-
-```
-context-engineering-workflow/
-├── 📁 src/                          # Main source code directory
-│   ├── 📁 workflows/                # 🎯 Complete workflow orchestration
-│   │   ├── 📄 agents.py            # Agent creation from YAML configs
-│   │   ├── 📄 tasks.py             # Task creation from YAML configs  
-│   │   ├── 📄 flow.py              # Main ResearchAssistantFlow
-│   ├── 📁 tools/                   # 🔧 All specialized tools
-│   │   ├── 📄 rag_tool.py          # RAG search functionality
-│   │   ├── 📄 memory_tool.py       # Memory retrieval tool
-│   │   ├── 📄 arxiv_tool.py        # ArXiv academic search
-│   │   ├── 📄 web_search_tool.py   # Web search via Firecrawl
-│   ├── 📁 rag/                     # 📚 RAG pipeline components
-│   │   ├── 📄 rag_pipeline.py      # Unified RAG orchestration
-│   │   ├── 📄 retriever.py         # Milvus vector database
-│   │   ├── 📄 embeddings.py        # Contextualized embeddings
-│   ├── 📁 document_processing/     # 📄 Document parsing & processing
-│   │   ├── 📄 doc_parser.py        # TensorLake document parser
-│   ├── 📁 memory/                  # 🧠 Memory management
-│   │   ├── 📄 memory.py            # Zep memory layer
-│   ├── 📁 generation/              # ✍️ Response generation
-│   │   ├── 📄 generation.py        # Structured response generation
-│   ├── 📁 config/                  # ⚙️ Configuration management
-│   │   ├── 📄 config_loader.py     # YAML configuration loader
-├── 📁 config/                      # 📋 YAML configuration files
-│   ├── 📁 agents/                  # Agent configurations
-│   │   └── 📄 research_agents.yaml # Agent roles, goals, backstories
-│   └── 📁 tasks/                   # Task configurations  
-│       └── 📄 research_tasks.yaml  # Task descriptions, expected outputs
-├── 📁 data/                        # 📊 Research documents (PDFs)
-├── 📁 outputs/                     # 📤 Generated outputs and results
-├── 📄 app.py                       # 🌐 Streamlit web interface
-├── 📄 pyproject.toml               # 🔧 Project configuration
-├── 📄 uv.lock                      # 🔒 Dependency lock file
-└── 📄 README.md                    
-```
-
-## Installation & Setup
-    
-1. **Install dependencies:**
-    First, install `uv` and set up the environment:
-    ```bash
-    # MacOS/Linux
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-
-    # Windows
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    ```
-
-    Install dependencies:
-    ```bash
-    # Create a new directory for our project
-    uv init research-assistant
-    cd research-assistant
-
-    # Create virtual environment and activate it
-    uv venv
-    source .venv/bin/activate  # MacOS/Linux
-
-    .venv\Scripts\activate     # Windows
-
-    # Install dependencies
-    uv sync
-    ```
-
-2. **Set up environment variables:**
-   Create a `.env` file with your API keys:
-   ```env
-   TENSORLAKE_API_KEY=your_tensorlake_key
-   VOYAGE_API_KEY=your_voyage_key
-   OPENAI_API_KEY=your_openai_key
-   ZEP_API_KEY=your_zep_key
-   FIRECRAWL_API_KEY=your_firecrawl_key
-   ```
-
-   Get the API keys here:
-   - [Tensorlake →](https://tensorlake.ai/)
-   - [Zep AI →](https://www.getzep.com/)
-   - [Firecrawl →](https://www.firecrawl.dev/)
-   - [OpenAI →](https://openai.com)
-   - [Voyage →](https://dashboard.voyageai.com/)
-
-4. **Prepare documents:**
-   Place your research documents in the `data/` directory (PDF format supported)
-
-## Usage
-
-```python
-uv run app.py or streamlit run app.py
-```
-
-## Key Features
-
-### 1. Extended citations support
-Each response includes comprehensive source attribution with a:
-
-#### 🎯 Source Relevance Summary
-- **Relevant Sources**: List of sources used
-- **Relevance Scores**: Confidence scores (0-1) for each source
-- **Reasoning**: Explanation of source selection
-
-### 2. Multi-Source Intelligence
-- Combines document knowledge, conversation memory, web search, and external APIs
-- Each source operates independently and in parallel for efficiency
-
-### 3. Intelligent Context Evaluation
-- Evaluator agent filters irrelevant information
-- Only relevant context is used for final response generation
-
-### 4. Coherent Response Synthesis
-- Synthesizer agent creates well-structured responses
-- Proper citation and confidence scoring
-- Handles insufficient context gracefully
-
-### 5. Persistent Memory
-- Conversation history stored in Zep Cloud
-- User preferences and context maintained across sessions
-- Agentic memory with graph-based internal representations
-
-## API Requirements
-
-- **TensorLake**: Document parsing and structured extraction
-- **Voyage AI**: Contextualized embeddings
-- **OpenAI**: Response generation with structured outputs
-- **Zep Cloud**: Persistent memory and conversation management
-- **Firecrawl**: Web search capabilities
-
-## 📬 Stay Updated with Our Newsletter!
-**Get a FREE Data Science eBook** 📖 with 150+ essential lessons in Data Science when you subscribe to our newsletter! Stay in the loop with the latest tutorials, insights, and exclusive resources. [Subscribe now!](https://join.dailydoseofds.com)
-
-[![Daily Dose of Data Science Newsletter](https://github.com/patchy631/ai-engineering/blob/main/resources/join_ddods.png)](https://join.dailydoseofds.com)
+[![🐳 Build & Push to Docker Hub](https://github.com/rashedulalbab253/Rag-powered-multiagent-RA/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/rashedulalbab253/Rag-powered-multiagent-RA/actions/workflows/docker-publish.yml)
+![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)
+![CrewAI](https://img.shields.io/badge/CrewAI-1.10-orange)
+![Docker](https://img.shields.io/badge/Docker-Hub-blue?logo=docker)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
 ---
 
-## Contribution
+## ✨ What's New (v2 — FastAPI Migration)
 
-Contributions are welcome! Please fork the repository and submit a pull request with your improvements. 
+| Before | After |
+|---|---|
+| Streamlit UI | **Premium HTML/CSS + FastAPI** |
+| `milvus-lite` (Linux/macOS only) | **ChromaDB** (cross-platform ✅) |
+| `tensorlake` (requires Rust build) | **PyMuPDF** (pre-built wheel ✅) |
+| Manual startup | **CI/CD → Docker Hub** via GitHub Actions |
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    Browser["🖥️ Browser\nHTML / CSS / JS"]
+    API["⚡ FastAPI Backend\nbackend.py"]
+    Flow["🔄 ResearchAssistantFlow\nCrewAI Flows"]
+
+    Browser -- REST --> API
+    API --> Flow
+
+    Flow --> RAG["📚 RAG Agent\nPyMuPDF → VoyageAI → ChromaDB"]
+    Flow --> MEM["🧠 Memory Agent\nZep Cloud"]
+    Flow --> WEB["🌐 Web Search Agent\nFirecrawl"]
+    Flow --> ARX["🎓 ArXiv Agent\nAcademic Papers"]
+
+    RAG --> EVAL["🎯 Evaluator Agent\nFilter & Score Relevance"]
+    MEM --> EVAL
+    WEB --> EVAL
+    ARX --> EVAL
+
+    EVAL --> SYN["✍️ Synthesizer Agent\nOpenAI GPT"]
+    SYN --> Browser
+```
+
+---
+
+## 📁 Project Structure
+
+```
+context-engineering-workflow/
+├── 🐍 backend.py                    # FastAPI app — all API endpoints
+├── 📁 frontend/
+│   ├── index.html                   # Premium SPA with glassmorphism UI
+│   └── style.css                    # Dark theme, animations, responsive
+├── 📁 src/
+│   ├── 📁 workflows/
+│   │   ├── flow.py                  # Main ResearchAssistantFlow (CrewAI)
+│   │   ├── agents.py                # Agent factories
+│   │   └── tasks.py                 # Task factories
+│   ├── 📁 rag/
+│   │   ├── rag_pipeline.py          # Unified RAG orchestration
+│   │   ├── retriever.py             # ChromaDB vector store
+│   │   └── embeddings.py            # VoyageAI contextualized embeddings
+│   ├── 📁 document_processing/
+│   │   └── doc_parser.py            # PyMuPDF PDF parser (replaces TensorLake)
+│   ├── 📁 memory/
+│   │   └── memory.py                # Zep Cloud memory layer
+│   └── 📁 generation/
+│       └── generation.py            # OpenAI structured response gen
+├── 📁 config/
+│   ├── agents/research_agents.yaml  # Agent personas & goals
+│   └── tasks/research_tasks.yaml    # Task descriptions
+├── 📄 Dockerfile                    # Multi-stage production image
+├── 📄 .dockerignore
+├── 📄 .github/workflows/
+│   └── docker-publish.yml           # CI/CD: build & push to Docker Hub
+├── 📄 pyproject.toml
+└── 📄 .env.example
+```
+
+---
+
+## 🚀 Quick Start
+
+### Option 1 — Docker (Recommended)
+
+```bash
+# 1. Create your .env file
+cp .env.example .env
+# Fill in your API keys
+
+# 2. Run from Docker Hub
+docker run -p 8000:8000 --env-file .env \
+  rashedulalbab1234/rag-research-assistant:latest
+
+# 3. Open browser
+open http://localhost:8000
+```
+
+### Option 2 — Local (Python 3.13 + uv)
+
+```bash
+# 1. Install uv
+# Windows:
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# macOS/Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Clone & setup
+git clone https://github.com/rashedulalbab253/Rag-powered-multiagent-RA.git
+cd Rag-powered-multiagent-RA
+
+# 3. Create virtual environment
+uv venv --python 3.13
+.venv\Scripts\activate      # Windows
+# source .venv/bin/activate  # macOS/Linux
+
+# 4. Install dependencies
+$env:TMP="D:\tmp"; $env:TEMP="D:\tmp"   # Windows only (avoids C: disk-space issues)
+uv pip install fastapi uvicorn pydantic python-dotenv python-multipart \
+               crewai crewai-tools openai voyageai zep-crewai firecrawl-py \
+               chromadb pymupdf --only-binary :all:
+
+# 5. Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# 6. Start the server
+$env:PYTHONPATH = "."; $env:DEMO_MODE="false"
+.venv\Scripts\uvicorn.exe backend:app --host 0.0.0.0 --port 8000 --reload
+
+# Open http://localhost:8000
+```
+
+---
+
+## 🔑 Environment Variables
+
+Copy `.env.example` to `.env` and fill in your keys:
+
+```env
+OPENAI_API_KEY=sk-...          # https://platform.openai.com
+VOYAGE_API_KEY=pa-...          # https://dashboard.voyageai.com
+ZEP_API_KEY=z_...              # https://www.getzep.com
+FIRECRAWL_API_KEY=fc-...       # https://www.firecrawl.dev
+TENSORLAKE_API_KEY=tl_...      # https://tensorlake.ai  (optional, replaced by PyMuPDF locally)
+
+# Set to "true" to use simulated responses (no API keys needed)
+DEMO_MODE=false
+```
+
+---
+
+## 🎯 Key Features
+
+### 1. 🤖 6-Agent Research Pipeline
+| Agent | Role |
+|---|---|
+| **RAG Agent** | Searches your uploaded PDFs via semantic similarity |
+| **Memory Agent** | Retrieves past conversation context from Zep Cloud |
+| **Web Search Agent** | Finds real-time web information via Firecrawl |
+| **ArXiv Agent** | Queries academic papers from arXiv |
+| **Evaluator Agent** | Scores and filters source relevance (0–1) |
+| **Synthesizer Agent** | Generates the final cited response via OpenAI |
+
+### 2. 📚 Smart RAG Pipeline
+- **PDF Parsing**: PyMuPDF with sentence-boundary chunking
+- **Embeddings**: VoyageAI `voyage-context-3` (1024-dim)
+- **Vector Store**: ChromaDB (persistent, HNSW cosine similarity)
+- **Generation**: OpenAI GPT with structured JSON output
+
+### 3. 🧠 Persistent Memory
+- Conversation history stored in **Zep Cloud**
+- User preferences maintained across sessions
+- Automatic summarization to prevent context overflow
+
+### 4. ✨ Premium UI
+- Glassmorphism dark theme with cosmic drift animation
+- Slide-in chat bubbles with smooth scrolling
+- Real-time status indicators for all API services
+- Expandable **View Sources & Citations** panel
+
+### 5. 🐳 Production-Ready
+- Multi-stage Dockerfile (slim runtime image)
+- GitHub Actions CI/CD → Docker Hub on every push
+- Health-check endpoint at `/api/status`
+- Non-root container user for security
+
+---
+
+## 🌐 API Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Serves the frontend SPA |
+| `GET` | `/api/status` | Returns initialization & API key status |
+| `POST` | `/api/initialize` | Initializes the multi-agent pipeline |
+| `POST` | `/api/upload` | Uploads and processes a PDF into ChromaDB |
+| `POST` | `/api/query` | Sends a query through the full agent pipeline |
+| `GET` | `/api/history` | Returns the full chat history |
+| `POST` | `/api/reset` | Clears the chat history |
+
+---
+
+## 🐳 Docker & CI/CD
+
+The GitHub Actions workflow (`.github/workflows/docker-publish.yml`) automatically:
+1. Triggers on every push to `main`
+2. Builds with **Docker Buildx** + GHA layer caching
+3. Pushes two tags to Docker Hub:
+   - `rashedulalbab1234/rag-research-assistant:latest`
+   - `rashedulalbab1234/rag-research-assistant:sha-<commit>`
+
+**Required GitHub Secrets:**
+
+| Secret | Value |
+|---|---|
+| `DOCKERHUB_USERNAME` | `rashedulalbab1234` |
+| `DOCKERHUB_TOKEN` | Your Docker Hub Access Token |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please fork the repository and submit a pull request.
+
+1. Fork the repo
+2. Create your feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'feat: add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ using CrewAI, FastAPI, ChromaDB, VoyageAI, Zep, and OpenAI</sub>
+</div>
