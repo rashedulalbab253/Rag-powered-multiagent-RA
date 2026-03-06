@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch:   # allow manual trigger from GitHub UI
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: rashedulalbab1234/rag-research-assistant
@@ -16,22 +16,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout source ───────────────────────────────────────────────
+      # ── 1. Checkout ───────────────────────────────────────────────────────
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Set up Docker Buildx (multi-platform builds, caching) ─────────
+      # ── 2. Set up Docker Buildx with the DEFAULT docker driver ───────────
+      #     (avoids the EOF / rpc error caused by docker-container driver
+      #      running out of memory on heavy installs like crewai + chromadb)
       - name: 🔧 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker          # ← key fix: use standard docker driver
 
-      # ── 3. Log in to Docker Hub ──────────────────────────────────────────
+      # ── 3. Log in to Docker Hub ───────────────────────────────────────────
       - name: 🔑 Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # ── 4. Extract metadata (tags & labels) ──────────────────────────────
+      # ── 4. Extract image tags ─────────────────────────────────────────────
       - name: 🏷️  Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -41,7 +45,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-,format=short
 
-      # ── 5. Build & push ──────────────────────────────────────────────────
+      # ── 5. Build & push ───────────────────────────────────────────────────
       - name: 🏗️  Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -50,18 +54,17 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # NOTE: GHA cache is disabled intentionally — it conflicts with
+          # the docker driver (only works with docker-container driver).
+          # Layer caching still works via Docker's own layer reuse.
 
-      # ── 6. Print image digest ─────────────────────────────────────────────
-      - name: ✅ Image pushed successfully
+      # ── 6. Summary ────────────────────────────────────────────────────────
+      - name: ✅ Done
         run: |
-          echo "🎉 Docker image pushed!"
-          echo "📦 Image: ${{ env.IMAGE_NAME }}"
-          echo "🏷️  Tags : ${{ steps.meta.outputs.tags }}"
+          echo "🎉 Image pushed to Docker Hub!"
           echo ""
-          echo "Pull it with:"
+          echo "Pull with:"
           echo "  docker pull ${{ env.IMAGE_NAME }}:latest"
           echo ""
-          echo "Run it locally:"
+          echo "Run with:"
           echo "  docker run -p 8000:8000 --env-file .env ${{ env.IMAGE_NAME }}:latest"
