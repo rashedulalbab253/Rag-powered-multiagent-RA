@@ -70,7 +70,7 @@ class ResearchAssistantFlow(Flow[ResearchAssistantState]):
         openai_api_key: Optional[str] = None,
         zep_api_key: Optional[str] = None,
         firecrawl_api_key: Optional[str] = None,
-        milvus_db_path: str = "milvus_lite.db",
+        milvus_db_path: str = "chroma_db",
     ):
         super().__init__()
         

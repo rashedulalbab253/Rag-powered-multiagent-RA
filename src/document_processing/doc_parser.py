@@ -1,218 +1,174 @@
+"""
+PyMuPDF-based document parser (replaces tensorlake which requires Rust/maturin to build).
+Drop-in replacement: same upload() / parse_structured() / get_result() API.
+Uses PyMuPDF (fitz) which has a pre-built Windows binary wheel.
+"""
 import os
 import json
 from typing import Iterable, List, Dict, Any, Optional
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
+
+import fitz  # PyMuPDF
+
 
 load_dotenv()
 
-from tensorlake.documentai import (
-    DocumentAI,
-    ParsingOptions,
-    ChunkingStrategy,
-    TableOutputMode,
-    TableParsingFormat,
-    StructuredExtractionOptions
-)
-
-TENSORLAKE_API_KEY = os.getenv("TENSORLAKE_API_KEY")
-
+# ---------------------------------------------------------------------------
+# Schema kept for API compatibility (not used in parsing but imported by rag_pipeline)
+# ---------------------------------------------------------------------------
 RESEARCH_PAPER_SCHEMA = {
     "type": "object",
     "properties": {
         "paper": {
             "type": "object",
             "properties": {
-                "title": {"type": "string"},
-                "authors": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "abstract": {"type": "string"},
-                "keywords": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
-                "key_findings": {
-                    "type": "array",
-                    "items": {"type": "string"}
-                },
+                "title":      {"type": "string"},
+                "authors":    {"type": "array", "items": {"type": "string"}},
+                "abstract":   {"type": "string"},
+                "keywords":   {"type": "array", "items": {"type": "string"}},
+                "key_findings": {"type": "array", "items": {"type": "string"}},
                 "sections": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
                             "heading": {"type": "string"},
-                            "summary": {"type": "string"}
+                            "summary": {"type": "string"},
                         },
-                        "required": ["heading", "summary"]
-                    }
-                }
+                        "required": ["heading", "summary"],
+                    },
+                },
             },
-            "required": ["title", "authors", "abstract", "sections"]
+            "required": ["title", "authors", "abstract", "sections"],
         }
     },
-    "required": ["paper"]
+    "required": ["paper"],
 }
 
+
+# ---------------------------------------------------------------------------
+# Tiny stub classes so rag_pipeline.py's result.chunks / result.model_dump()
+# still work without changes.
+# ---------------------------------------------------------------------------
+@dataclass
+class Chunk:
+    content: str
+    page_number: int
+
+
+@dataclass
+class ParseResult:
+    chunks: List[Chunk] = field(default_factory=list)
+    structured: Dict[str, Any] = field(default_factory=dict)
+
+    def model_dump(self) -> Dict[str, Any]:
+        return {
+            "chunks": [{"content": c.content, "page_number": c.page_number} for c in self.chunks],
+            "structured": self.structured,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Main client (same public interface as the original TensorLakeClient)
+# ---------------------------------------------------------------------------
 class TensorLakeClient:
+    """
+    Local PDF parser that uses PyMuPDF instead of the TensorLake cloud API.
+    The chunk size is ~500 chars to stay similar to the original chunking strategy.
+    """
+
+    CHUNK_SIZE = 500   # characters
+
     def __init__(self, api_key: Optional[str] = None):
-        self.doc_ai = DocumentAI(api_key=api_key or TENSORLAKE_API_KEY)
-    
-    def list_uploaded_files(self):
-        try:
-            files_page = self.doc_ai.files()
-            print(f"TensorLake files found: {len(files_page.items)}")
-            for file_info in files_page.items:
-                print(f"  - {file_info.name} (ID: {file_info.id}, Size: {file_info.file_size} bytes, Type: {file_info.mime_type})")
-            return files_page.items
-        except Exception as e:
-            print(f"Error listing TensorLake files: {e}")
-            return []
-    
-    def verify_file_uploaded(self, file_id: str) -> bool:
-        try:
-            files = self.list_uploaded_files()
-            file_ids = [f.id for f in files]
-            exists = file_id in file_ids
-            print(f"File ID {file_id} {'exists' if exists else 'NOT FOUND'} in TensorLake")
-            return exists
-        except Exception as e:
-            print(f"Error verifying file {file_id}: {e}")
-            return False
+        # api_key kept for signature compatibility; not used
+        pass
+
+    # --- internal helpers --------------------------------------------------
+
+    def _split_text(self, text: str) -> List[str]:
+        """Simple character-level chunking with sentence boundary preference."""
+        chunks, start = [], 0
+        while start < len(text):
+            end = min(start + self.CHUNK_SIZE, len(text))
+            # Prefer splitting at sentence end
+            for sep in (".\n", ". ", ".\t", "\n\n"):
+                pos = text.rfind(sep, start, end)
+                if pos > start + self.CHUNK_SIZE // 2:
+                    end = pos + len(sep)
+                    break
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            start = end
+        return chunks
+
+    # --- public interface (mirrors TensorLakeClient) -----------------------
 
     def upload(self, paths: Iterable[str]) -> List[str]:
-        print("Files before upload:")
-        files_before = self.list_uploaded_files()
-        
-        file_ids = []
+        """
+        'Upload' just validates that the files exist and returns their paths as IDs.
+        No network call needed.
+        """
+        ids = []
         for path in paths:
             if not os.path.exists(path):
-                raise Exception(f"File does not exist: {path}")
-            
-            file_size = os.path.getsize(path)
-            if file_size == 0:
-                raise Exception(f"File is empty: {path} (0 bytes)")
-            
-            print(f"\nUploading file: {path} ({file_size} bytes)")
-            
-            try:
-                fid = self.doc_ai.upload(path=path)
-                print(f"Upload successful, file_id: {fid}")
-                file_ids.append(fid)
-            except Exception as upload_error:
-                print(f"Upload failed for {path}: {upload_error}")
-                raise
-        
-        print("\nFiles after upload:")
-        files_after = self.list_uploaded_files()
-        
-        new_files = [f for f in files_after if f not in files_before]
-        if new_files:
-            print(f"{len(new_files)} new file(s) uploaded:")
-            for file_info in new_files:
-                print(f"  - {file_info.name} (ID: {file_info.id})")
-        else:
-            print("No new files detected in TensorLake after upload")
-            
-        return file_ids
+                raise FileNotFoundError(f"File not found: {path}")
+            if os.path.getsize(path) == 0:
+                raise ValueError(f"File is empty: {path}")
+            ids.append(path)   # path is the "file ID"
+        return ids
 
     def parse_structured(
         self,
         file_id: str,
         json_schema: Dict[str, Any],
         *,
-        page_range = None,
-        labels = None,
-        chunking_strategy = ChunkingStrategy.SECTION,
-        table_mode = TableOutputMode.MARKDOWN,
-        table_format = TableParsingFormat.TSR,
+        page_range=None,
+        labels=None,
+        **_kwargs,
     ) -> str:
-        
-        print(f"Using chunking strategy: {chunking_strategy}")
-        print(f"Using table mode: {table_mode}")
-        print(f"Schema name: research_paper")
-        
-        structured_extraction_options = StructuredExtractionOptions(
-            schema_name="research_paper",
-            json_schema=json_schema,
-            provide_citations=True
-        )
+        """
+        Returns file_id as the parse_id (we parse synchronously in get_result).
+        """
+        return file_id   # parse_id == path
 
-        parsing_options = ParsingOptions(
-            chunking_strategy=chunking_strategy,
-            table_output_mode=table_mode,
-            table_parsing_format=table_format,
-        )
+    def get_result(self, parse_id: str) -> ParseResult:
+        """
+        Actually parse the PDF using PyMuPDF and return a ParseResult.
+        """
+        path = parse_id
+        doc = fitz.open(path)
+        chunks: List[Chunk] = []
 
-        if not self.verify_file_uploaded(file_id):
-            raise Exception(f"File ID {file_id} not found in TensorLake. Cannot proceed with parsing.")
-        
-        print(f"Initiating parsing for file_id: {file_id}")
-        try:
-            parse_id = self.doc_ai.parse(
-                file_id,
-                page_range=page_range,
-                parsing_options=parsing_options,
-                structured_extraction_options=structured_extraction_options,
-                labels=labels or {}
-            )
-            print(f"Parsing initiated, parse_id: {parse_id}")
-            return parse_id
-        except Exception as parse_error:
-            print(f"Parsing initiation failed: {parse_error}")
-            raise
+        for page_num, page in enumerate(doc, start=1):
+            text = page.get_text("text")
+            for chunk_text in self._split_text(text):
+                chunks.append(Chunk(content=chunk_text, page_number=page_num))
 
-    def get_result(self, parse_id: str) -> Dict[str, Any]:
-        print(f"Waiting for completion of parse_id: {parse_id}")
-        result = self.doc_ai.wait_for_completion(parse_id)
-        print(f"Parsing completed for parse_id: {parse_id}")
-        
-        if result:
-            if hasattr(result, 'chunks'):
-                chunks = result.chunks
-                chunk_count = len(chunks) if chunks else 0
-                print(f"Number of chunks found: {chunk_count}")
-                if chunk_count > 0:
-                    print(f"First chunk preview: {chunks[0].content[:100] if hasattr(chunks[0], 'content') else 'No content'}...")
-            else:
-                print("Result has no 'chunks' attribute")
-        else:
-            print("Result is None or empty")
-            
-        return result
-        
+        doc.close()
 
+        if not chunks:
+            raise RuntimeError(f"No text could be extracted from '{path}'")
 
-if __name__ == "__main__":
-    client = TensorLakeClient()
+        # Build minimal structured metadata from first page
+        first_page_text = chunks[0].content if chunks else ""
+        structured = {
+            "paper": {
+                "title":    first_page_text[:120].split("\n")[0].strip(),
+                "authors":  [],
+                "abstract": first_page_text[:500],
+                "keywords": [],
+                "key_findings": [],
+                "sections": [{"heading": f"Page {c.page_number}", "summary": c.content[:200]} for c in chunks[:5]],
+            }
+        }
 
-    # Upload local documents
-    file_ids = client.upload([
-        "data/attention-is-all-you-need-Paper.pdf",
-    ])
+        return ParseResult(chunks=chunks, structured=structured)
 
-    # Parse each with schema (and produce RAG chunks)
-    parse_ids = []
-    for fid in file_ids:
-        pid = client.parse_structured(
-            file_id=fid,
-            json_schema=RESEARCH_PAPER_SCHEMA,
-            page_range=None,  # parse all pages
-        )
-        parse_ids.append(pid)
+    # Compatibility stubs (called nowhere in the new code path but kept to avoid import errors)
+    def list_uploaded_files(self):
+        return []
 
-    # Retrieve the parsed result (markdown chunks + schema JSON)
-    results = [client.get_result(pid) for pid in parse_ids]
-
-    # collect RAG chunks + structured paper metadata
-    rag_chunks, extracted_data = [], []
-    for res in results:
-        # markdown chunks for retrieval
-        for chunk in res.chunks:
-            rag_chunks.append({
-                "page": chunk.page_number,
-                "text": chunk.content,
-            })
-        # structured extraction schema
-        serializable_data = res.model_dump()
-        extracted_data.append(serializable_data)
+    def verify_file_uploaded(self, file_id: str) -> bool:
+        return os.path.exists(file_id)

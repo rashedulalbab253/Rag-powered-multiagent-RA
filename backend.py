@@ -60,7 +60,7 @@ class ResearchAssistant:
                 openai_api_key=os.getenv("OPENAI_API_KEY"),
                 zep_api_key=os.getenv("ZEP_API_KEY"),
                 firecrawl_api_key=os.getenv("FIRECRAWL_API_KEY"),
-                milvus_db_path="milvus_lite.db",
+                milvus_db_path="chroma_db",
             )
             self.initialized = True
             return True, None

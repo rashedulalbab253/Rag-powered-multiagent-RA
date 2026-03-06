@@ -12,7 +12,7 @@ class RAGPipeline:
         tensorlake_api_key: Optional[str] = None,
         voyage_api_key: Optional[str] = None,
         openai_api_key: Optional[str] = None,
-        milvus_db_path: str = "milvus_lite.db",
+        milvus_db_path: str = "chroma_db",
         collection_name: str = "research_assistant"
     ):
         self.doc_parser = TensorLakeClient(api_key=tensorlake_api_key)
