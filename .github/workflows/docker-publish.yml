@@ -20,11 +20,29 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Log in to Docker Hub ───────────────────────────────────────────
+      # ── 2. Free up disk space (GitHub runner only has ~14 GB free) ────────
+      #     Docker pulls and heavy pip installs can fill it and crash dockerd.
+      - name: 🧹 Free disk space
+        run: |
+          echo "=== Disk before ===" && df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          docker system prune -af || true
+          echo "=== Disk after ===" && df -h
+
+      # ── 3. Log in to Docker Hub ───────────────────────────────────────────
       - name: 🔑 Log in to Docker Hub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      # ── 3. Build image (plain docker CLI — no buildx, avoids EOF bug) ─────
+      # ── 4. Pull base image explicitly (tests connectivity before build) ───
+      - name: 📦 Pre-pull base image
+        run: docker pull python:3.11-slim
+
+      # ── 5. Build ──────────────────────────────────────────────────────────
       - name: 🏗️  Build Docker image
         run: |
           docker build \
@@ -34,18 +52,17 @@ jobs:
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             .
 
-      # ── 4. Push (only on push to main, not on PRs) ────────────────────────
+      # ── 6. Push ───────────────────────────────────────────────────────────
       - name: 📤 Push to Docker Hub
         if: github.event_name != 'pull_request'
         run: |
           docker push ${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.IMAGE_NAME }}:sha-${GITHUB_SHA::7}
 
-      # ── 5. Summary ────────────────────────────────────────────────────────
+      # ── 7. Summary ────────────────────────────────────────────────────────
       - name: ✅ Done
         if: github.event_name != 'pull_request'
         run: |
           echo "🎉 Successfully pushed to Docker Hub!"
-          echo ""
           echo "Pull:  docker pull ${{ env.IMAGE_NAME }}:latest"
           echo "Run:   docker run -p 8000:8000 --env-file .env ${{ env.IMAGE_NAME }}:latest"

@@ -1,5 +1,5 @@
 # ── Stage 1: Builder ─────────────────────────────────────────────────────────
-FROM python:3.13-slim AS builder
+FROM python:3.11-slim AS builder
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir \
 
 
 # ── Stage 2: Slim runtime ────────────────────────────────────────────────────
-FROM python:3.13-slim AS runtime
+FROM python:3.11-slim AS runtime
 
 # Non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -40,7 +40,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application source
