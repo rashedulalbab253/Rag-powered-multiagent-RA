@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Research Assistant — Context Engineering</title>
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔬</text></svg>">
+  <meta name="description"
+    content="Multi-agent AI Research Assistant powered by RAG, Web Search, Persistent Memory and Academic Research." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+
+  <!-- ========= SIDEBAR ========= -->
+  <aside class="sidebar" id="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-brand">
+      <div class="brand-icon">🔬</div>
+      <div class="brand-text">
+        <span class="brand-name">Research AI</span>
+        <span class="brand-sub">Context Engineering</span>
+      </div>
+    </div>
+
+    <!-- API Key Status -->
+    <section class="sidebar-section">
+      <h3 class="section-title"><span class="icon">🔑</span> API Status</h3>
+      <div id="api-status-list" class="api-status-list">
+        <div class="api-item loading"><span class="dot"></span>Loading…</div>
+      </div>
+    </section>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Initialize -->
+    <section class="sidebar-section">
+      <h3 class="section-title"><span class="icon">🤖</span> Assistant</h3>
+      <div id="assistant-status" class="status-badge status-offline">● Offline</div>
+      <button id="btn-init" class="btn btn-primary btn-full" onclick="initializeAssistant()">
+        <span class="btn-icon">🚀</span> Initialize Assistant
+      </button>
+    </section>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Document Upload -->
+    <section class="sidebar-section">
+      <h3 class="section-title"><span class="icon">📄</span> Document</h3>
+
+      <div id="doc-status" class="doc-status doc-none">No document loaded</div>
+
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">📎</div>
+        <div class="upload-text">Click to upload PDF</div>
+        <div class="upload-sub">or drag &amp; drop here</div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf" style="display:none" onchange="handleFileSelect(event)" />
+
+      <div id="file-selected" class="file-preview hidden">
+        <div class="file-name" id="file-name-label"></div>
+        <button id="btn-process" class="btn btn-accent btn-full" onclick="uploadDocument()">
+          <span class="btn-icon">⚡</span> Process Document
+        </button>
+      </div>
+
+      <div id="progress-container" class="progress-container hidden">
+        <div class="progress-label" id="progress-label">Processing…</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sidebar-divider"></div>
+
+    <!-- Reset -->
+    <section class="sidebar-section">
+      <button class="btn btn-ghost btn-full" onclick="resetChat()">
+        <span class="btn-icon">🔄</span> Reset Chat
+      </button>
+    </section>
+
+    <!-- Powered By logos -->
+    <div class="powered-by">
+      <span>Powered by</span>
+      <div class="logo-row">
+        <a href="https://tensorlake.ai" target="_blank" title="TensorLake">TensorLake</a>
+        <a href="https://www.getzep.com" target="_blank" title="Zep">Zep</a>
+        <a href="https://firecrawl.dev" target="_blank" title="Firecrawl">Firecrawl</a>
+        <a href="https://crewai.com" target="_blank" title="CrewAI">CrewAI</a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========= MAIN CONTENT ========= -->
+  <main class="main" id="main">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <button class="burger" id="burger" onclick="toggleSidebar()" aria-label="Toggle sidebar">☰</button>
+      <div class="topbar-title">
+        <h1>AI Research Assistant</h1>
+        <p>Context Engineering Workflow · RAG · Memory · Web · ArXiv</p>
+      </div>
+      <div class="topbar-right">
+        <div class="pulse-dot" id="pulse-active" style="display:none"></div>
+      </div>
+    </header>
+
+    <!-- Welcome / Idle state -->
+    <div id="welcome-screen" class="welcome-screen">
+      <div class="welcome-glow"></div>
+      <div class="welcome-icon">🔬</div>
+      <h2 class="welcome-title">Multi-Agent Research Assistant</h2>
+      <p class="welcome-desc">
+        Initialize the assistant and upload a PDF to begin. The system will
+        simultaneously search your documents, retrieve conversation memory,
+        search the web, and query academic papers — then synthesize a coherent response.
+      </p>
+      <div class="welcome-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><strong>Initialize</strong> the assistant</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text"><strong>Upload</strong> a PDF</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text"><strong>Ask</strong> anything</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat thread -->
+    <div id="chat-thread" class="chat-thread hidden"></div>
+
+    <!-- Thinking indicator -->
+    <div id="thinking-bar" class="thinking-bar hidden">
+      <div class="thinking-steps" id="thinking-steps"></div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="input-bar" id="input-bar">
+      <div class="input-wrap">
+        <textarea id="query-input" class="query-input" rows="1" placeholder="Ask anything about your document…" disabled
+          onkeydown="handleEnter(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" class="send-btn" onclick="sendQuery()" disabled>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+            <path
+              d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line</div>
+    </div>
+
+  </main>
+
+  <!-- ========= TOAST ========= -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ========= SCRIPTS ========= -->
+  <script>
+    const API = '';  // same-origin
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    let appState = {
+      initialized: false,
+      documentProcessed: false,
+      currentDocument: null,
+      chatHistory: [],
+      loading: false,
+    };
+
+    // ── Boot ────────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchStatus();
+      setupDragDrop();
+    });
+
+    // ── Status poll ─────────────────────────────────────────────────────────────
+    async function fetchStatus() {
+      try {
+        const res = await fetch(`${API}/api/status`);
+        const data = await res.json();
+
+        // API keys
+        const list = document.getElementById('api-status-list');
+        list.innerHTML = '';
+        for (const [key, ok] of Object.entries(data.api_keys)) {
+          const short = key.replace('_API_KEY', '');
+          list.innerHTML += `
+        <div class="api-item ${ok ? 'ok' : 'missing'}">
+          <span class="dot"></span>
+          <span>${short}</span>
+          <span class="api-badge">${ok ? '✓' : '✗'}</span>
+        </div>`;
+        }
+
+        // Assistant state
+        appState.initialized = data.initialized;
+        appState.documentProcessed = data.document_processed;
+        appState.currentDocument = data.current_document;
+        updateUI();
+      } catch (e) {
+        console.error('Status fetch failed', e);
+      }
+    }
+
+    // ── UI sync ─────────────────────────────────────────────────────────────────
+    function updateUI() {
+      const { initialized, documentProcessed, currentDocument } = appState;
+
+      // Assistant badge
+      const badge = document.getElementById('assistant-status');
+      badge.className = `status-badge ${initialized ? 'status-online' : 'status-offline'}`;
+      badge.textContent = initialized ? '● Online' : '● Offline';
+
+      // Init button
+      const btnInit = document.getElementById('btn-init');
+      btnInit.disabled = initialized;
+      btnInit.innerHTML = initialized
+        ? '<span class="btn-icon">✅</span> Initialized'
+        : '<span class="btn-icon">🚀</span> Initialize Assistant';
+
+      // Document status
+      const docStatus = document.getElementById('doc-status');
+      if (documentProcessed && currentDocument) {
+        docStatus.className = 'doc-status doc-ok';
+        docStatus.textContent = `✅ ${currentDocument}`;
+      } else {
+        docStatus.className = 'doc-status doc-none';
+        docStatus.textContent = 'No document loaded';
+      }
+
+      // Upload area
+      document.getElementById('upload-area').classList.toggle('disabled', !initialized);
+
+      // Input
+      const canChat = initialized && documentProcessed;
+      document.getElementById('query-input').disabled = !canChat;
+      document.getElementById('send-btn').disabled = !canChat;
+
+      // Pulse
+      document.getElementById('pulse-active').style.display = initialized ? 'block' : 'none';
+
+      // Screens
+      const hasHistory = appState.chatHistory.length > 0;
+      document.getElementById('welcome-screen').classList.toggle('hidden', hasHistory);
+      document.getElementById('chat-thread').classList.toggle('hidden', !hasHistory);
+    }
+
+    // ── Initialize ───────────────────────────────────────────────────────────────
+    async function initializeAssistant() {
+      if (appState.initialized) return;
+      const btn = document.getElementById('btn-init');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Initializing…';
+      try {
+        const res = await fetch(`${API}/api/initialize`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          appState.initialized = true;
+          showToast('✅ ' + data.message, 'success');
+        } else {
+          showToast('❌ ' + (data.detail || 'Init failed'), 'error');
+        }
+      } catch (e) {
+        showToast('❌ Network error: ' + e.message, 'error');
+      }
+      updateUI();
+    }
+
+    // ── File drag-drop ───────────────────────────────────────────────────────────
+    function setupDragDrop() {
+      const area = document.getElementById('upload-area');
+      area.addEventListener('dragover', e => { e.preventDefault(); area.classList.add('drag-over'); });
+      area.addEventListener('dragleave', () => area.classList.remove('drag-over'));
+      area.addEventListener('drop', e => {
+        e.preventDefault();
+        area.classList.remove('drag-over');
+        if (!appState.initialized) return showToast('Initialize the assistant first', 'warn');
+        const file = e.dataTransfer.files[0];
+        if (file) previewFile(file);
+      });
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (file) previewFile(file);
+    }
+
+    let selectedFile = null;
+    function previewFile(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) return showToast('Only PDF files supported', 'warn');
+      selectedFile = file;
+      document.getElementById('file-name-label').textContent = '📄 ' + file.name;
+      document.getElementById('file-selected').classList.remove('hidden');
+      document.getElementById('upload-area').classList.add('hidden');
+    }
+
+    // ── Upload doc ───────────────────────────────────────────────────────────────
+    async function uploadDocument() {
+      if (!selectedFile) return;
+      showProgress('Uploading document…', 15);
+      document.getElementById('btn-process').disabled = true;
+      const form = new FormData();
+      form.append('file', selectedFile);
+
+      try {
+        showProgress('Parsing with TensorLake…', 40);
+        const res = await fetch(`${API}/api/upload`, { method: 'POST', body: form });
+        showProgress('Generating embeddings…', 70);
+        const data = await res.json();
+        showProgress('Storing in Milvus…', 90);
+        await sleep(400);
+        hideProgress();
+
+        if (res.ok) {
+          appState.documentProcessed = true;
+          appState.currentDocument = data.document;
+          document.getElementById('file-selected').classList.add('hidden');
+          document.getElementById('upload-area').classList.remove('hidden');
+          selectedFile = null;
+          document.getElementById('file-input').value = '';
+          showToast('✅ ' + data.message, 'success');
+        } else {
+          showToast('❌ ' + (data.detail || 'Upload failed'), 'error');
+        }
+      } catch (e) {
+        hideProgress();
+        showToast('❌ Network error: ' + e.message, 'error');
+      }
+      document.getElementById('btn-process').disabled = false;
+      updateUI();
+    }
+
+    // ── Query ────────────────────────────────────────────────────────────────────
+    async function sendQuery() {
+      const input = document.getElementById('query-input');
+      const query = input.value.trim();
+      if (!query || appState.loading) return;
+
+      input.value = '';
+      input.style.height = 'auto';
+      appState.loading = true;
+      document.getElementById('send-btn').disabled = true;
+
+      appendMessage('user', query);
+      showThinking();
+      hideWelcome();
+
+      try {
+        const res = await fetch(`${API}/api/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+        const data = await res.json();
+        hideThinking();
+
+        if (res.ok) {
+          appState.chatHistory.push({ query, response: data });
+          appendMessage('assistant', data);
+        } else {
+          appendMessage('error', data.detail || 'Query failed');
+        }
+      } catch (e) {
+        hideThinking();
+        appendMessage('error', 'Network error: ' + e.message);
+      }
+
+      appState.loading = false;
+      document.getElementById('send-btn').disabled = false;
+      document.getElementById('query-input').focus();
+    }
+
+    function handleEnter(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendQuery();
+      }
+    }
+
+    // ── Chat rendering ───────────────────────────────────────────────────────────
+    function appendMessage(role, content) {
+      const thread = document.getElementById('chat-thread');
+      thread.classList.remove('hidden');
+
+      const msg = document.createElement('div');
+      msg.className = `message message-${role}`;
+
+      if (role === 'user') {
+        msg.innerHTML = `
+      <div class="msg-avatar">🧑</div>
+      <div class="msg-bubble">
+        <div class="msg-text">${escHtml(content)}</div>
+      </div>`;
+      } else if (role === 'assistant') {
+        const final = content.final_response || JSON.stringify(content, null, 2);
+        const citHtml = buildCitations(content);
+        msg.innerHTML = `
+      <div class="msg-avatar">🤖</div>
+      <div class="msg-bubble">
+        <div class="msg-text">${renderMarkdown(final)}</div>
+        ${citHtml}
+      </div>`;
+      } else {
+        msg.innerHTML = `
+      <div class="msg-avatar">⚠️</div>
+      <div class="msg-bubble msg-bubble-error">
+        <div class="msg-text">${escHtml(content)}</div>
+      </div>`;
+      }
+
+      thread.appendChild(msg);
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    // ── Citations ────────────────────────────────────────────────────────────────
+    function buildCitations(response) {
+      const sources = response.context_sources;
+      const eval_ = response.evaluation_result || {};
+      if (!sources) return '';
+
+      const allSources = [
+        { key: 'RAG', label: 'RAG (Documents)', icon: '📄', data: sources.rag_result },
+        { key: 'Memory', label: 'Memory (History)', icon: '🧠', data: sources.memory_result },
+        { key: 'Web', label: 'Web Search', icon: '🌐', data: sources.web_result },
+        { key: 'ArXiv', label: 'ArXiv Papers', icon: '📚', data: sources.tool_result },
+      ];
+      const relevant = eval_.relevant_sources || [];
+      const scores = eval_.relevance_scores || {};
+      const reasoning = eval_.reasoning || '';
+
+      const visible = relevant.length
+        ? allSources.filter(s => s.data && relevant.includes(s.key))
+        : allSources.filter(s => s.data);
+
+      if (!visible.length) return '';
+
+      const scoreRows = relevant
+        .map(k => `<span class="score-chip">${k} <strong>${(scores[k] || 0).toFixed(2)}</strong></span>`)
+        .join('');
+
+      const sourceSections = visible.map(s => {
+        const d = s.data;
+        const status = d.status || 'OK';
+        const answer = typeof d.answer === 'string' ? d.answer : JSON.stringify(d.answer || '');
+        const preview = answer.length > 300 ? answer.slice(0, 300) + '…' : answer;
+        const citations = (d.citations || []).slice(0, 4)
+          .map(c => {
+            const label = c.label || 'Source';
+            const loc = c.locator || '';
+            return loc.startsWith('http')
+              ? `<a class="cit-link" href="${loc}" target="_blank">${escHtml(label)}</a>`
+              : `<span class="cit-chunk">📌 ${escHtml(label)} — ${escHtml(loc)}</span>`;
+          }).join('');
+        return `
+      <div class="source-block">
+        <div class="source-header">
+          <span>${s.icon} ${s.label}</span>
+          <span class="source-status status-${status.toLowerCase()}">${status}</span>
+        </div>
+        ${preview ? `<pre class="source-preview">${escHtml(preview)}</pre>` : ''}
+        ${citations ? `<div class="cit-list">${citations}</div>` : ''}
+      </div>`;
+      }).join('');
+
+      const uid = 'cit_' + Math.random().toString(36).slice(2);
+      return `
+    <div class="citations-wrapper">
+      <button class="cit-toggle" onclick="toggleCitations('${uid}')">
+        📚 View Sources &amp; Citations <span class="cit-arrow" id="arr_${uid}">▸</span>
+      </button>
+      <div class="citations-panel hidden" id="${uid}">
+        ${reasoning ? `<div class="cit-reasoning"><em>💡 ${escHtml(reasoning)}</em></div>` : ''}
+        ${scoreRows ? `<div class="score-row">${scoreRows}</div>` : ''}
+        ${sourceSections}
+      </div>
+    </div>`;
+    }
+
+    function toggleCitations(id) {
+      const panel = document.getElementById(id);
+      const arrow = document.getElementById('arr_' + id);
+      panel.classList.toggle('hidden');
+      arrow.textContent = panel.classList.contains('hidden') ? '▸' : '▾';
+    }
+
+    // ── Thinking bar ─────────────────────────────────────────────────────────────
+    const thinkingSteps = [
+      '📄 Step 1/4: Analyzing document via RAG…',
+      '🧠 Step 2/4: Retrieving conversation memory…',
+      '🌐 Step 3/4: Searching the web…',
+      '📚 Step 4/4: Querying academic papers…',
+    ];
+    let thinkingIdx = 0;
+    let thinkingTimer = null;
+
+    function showThinking() {
+      thinkingIdx = 0;
+      const bar = document.getElementById('thinking-bar');
+      bar.classList.remove('hidden');
+      const steps = document.getElementById('thinking-steps');
+      steps.innerHTML = `<span class="thinking-step active">${thinkingSteps[0]}</span>`;
+      thinkingTimer = setInterval(() => {
+        thinkingIdx = (thinkingIdx + 1) % thinkingSteps.length;
+        steps.innerHTML = `<span class="thinking-step active">${thinkingSteps[thinkingIdx]}</span>`;
+      }, 3000);
+    }
+
+    function hideThinking() {
+      clearInterval(thinkingTimer);
+      document.getElementById('thinking-bar').classList.add('hidden');
+    }
+
+    // ── Welcome ───────────────────────────────────────────────────────────────────
+    function hideWelcome() {
+      document.getElementById('welcome-screen').classList.add('hidden');
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────────────────────
+    async function resetChat() {
+      await fetch(`${API}/api/reset`, { method: 'POST' });
+      appState.chatHistory = [];
+      document.getElementById('chat-thread').innerHTML = '';
+      document.getElementById('chat-thread').classList.add('hidden');
+      document.getElementById('welcome-screen').classList.remove('hidden');
+      showToast('Chat history cleared', 'success');
+    }
+
+    // ── Progress bar ──────────────────────────────────────────────────────────────
+    function showProgress(label, pct) {
+      document.getElementById('progress-container').classList.remove('hidden');
+      document.getElementById('progress-label').textContent = label;
+      document.getElementById('progress-fill').style.width = pct + '%';
+    }
+    function hideProgress() {
+      document.getElementById('progress-container').classList.add('hidden');
+      document.getElementById('progress-fill').style.width = '0%';
+    }
+
+    // ── Sidebar toggle ─────────────────────────────────────────────────────────────
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+      document.getElementById('main').classList.toggle('sidebar-collapsed');
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+    function escHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br/>');
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────────────
+    let toastTimer = null;
+    function showToast(msg, type = 'info') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast toast-${type}`;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.className = 'toast hidden', 4000);
+    }
+  </script>
+</body>
+
+</html>
