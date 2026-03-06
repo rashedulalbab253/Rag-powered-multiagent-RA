@@ -1,60 +1,62 @@
-# ── Stage 1: Builder ─────────────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+# Single-stage build — simpler, no multi-stage gRPC issues
+FROM python:3.13-slim
 
-# System deps
+# System deps needed by chromadb and pymupdf
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl && \
+    build-essential libglib2.0-0 libgl1 && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-# ── Layer 1: Core web framework (small, changes rarely) ──────────────────────
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    fastapi "uvicorn[standard]" python-multipart \
-    python-dotenv pydantic requests
-
-# ── Layer 2: AI / LLM packages (large but changes rarely) ────────────────────
-RUN pip install --no-cache-dir \
-    openai voyageai firecrawl-py
-
-# ── Layer 3: Memory (zep) ────────────────────────────────────────────────────
-RUN pip install --no-cache-dir \
-    "zep-crewai"
-
-# ── Layer 4: CrewAI core ─────────────────────────────────────────────────────
-RUN pip install --no-cache-dir \
-    crewai crewai-tools
-
-# ── Layer 5: Vector DB + PDF parser ─────────────────────────────────────────
-RUN pip install --no-cache-dir \
-    chromadb pymupdf
-
-
-# ── Stage 2: Slim runtime ────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
-
-# Non-root user for security
+# Non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# ── Install in layers (each layer cached independently) ──────────────────────
 
-# Copy application source
+# Layer 1 — web framework (tiny, changes most often)
+RUN pip install --no-cache-dir \
+    "fastapi==0.135.1" \
+    "uvicorn[standard]==0.41.0" \
+    "python-multipart==0.0.22" \
+    "python-dotenv==1.1.1" \
+    "pydantic==2.11.10" \
+    "requests>=2.32"
+
+# Layer 2 — LLM / embedding clients
+RUN pip install --no-cache-dir \
+    "openai==2.26.0" \
+    "voyageai==0.3.7" \
+    "firecrawl-py==4.18.0"
+
+# Layer 3 — Memory
+RUN pip install --no-cache-dir \
+    "zep-crewai==1.1.1"
+
+# Layer 4 — CrewAI (largest, slowest)
+RUN pip install --no-cache-dir \
+    "crewai==1.10.1" \
+    "crewai-tools==1.10.1"
+
+# Layer 5 — RAG stack (ChromaDB + PyMuPDF)
+RUN pip install --no-cache-dir \
+    "chromadb==1.1.1" \
+    "pymupdf==1.26.7"
+
+# ── Copy application source ───────────────────────────────────────────────────
 COPY backend.py     ./
 COPY frontend/      ./frontend/
 COPY src/           ./src/
 
-# Writable dirs for vector DB and uploads
-RUN mkdir -p chroma_db uploads && \
-    chown -R appuser:appuser /app
+# Writable dirs
+RUN mkdir -p chroma_db uploads && chown -R appuser:appuser /app
 
 USER appuser
 
 EXPOSE 8000
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEMO_MODE=false
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/status')" || exit 1
