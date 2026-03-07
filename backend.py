@@ -19,7 +19,7 @@ def _load_flow_class():
     return mod.ResearchAssistantFlow
 
 # ---------------------------------------------------------------------------
-# Global in-memory state (mirrors the Streamlit session_state pattern)
+# Global in-memory state
 # ---------------------------------------------------------------------------
 _state: Dict[str, Any] = {
     "assistant": None,
@@ -30,7 +30,7 @@ _state: Dict[str, Any] = {
 }
 
 # ---------------------------------------------------------------------------
-# Research-assistant wrapper (same logic as StreamlitResearchAssistant)
+# Research-assistant wrapper
 # ---------------------------------------------------------------------------
 class ResearchAssistant:
     def __init__(self, user_id: str = "web_user", thread_id: str = "web_session"):
@@ -44,7 +44,7 @@ class ResearchAssistant:
         self.demo_mode = os.getenv("DEMO_MODE", "false").lower() == "true"
         print(f"[AUTH] App starting: DemoMode={self.demo_mode}")
 
-    def initialize(self) -> bool:
+    def initialize(self):
         """Initialize the assistant. Return (success, error_msg)"""
         # If explicitly in demo mode, skip heavy imports
         if self.demo_mode:
@@ -65,12 +65,11 @@ class ResearchAssistant:
             self.initialized = True
             return True, None
         except Exception as e:
-            # Fallback to demo mode if initialization fails anyway
-            # This handles cases where user didn't set DEMO_MODE but deps are missing
-            print(f"[RECOVERY] Init failed ({e}). Falling back to Demo Mode.")
-            self.demo_mode = True
-            self.initialized = True
-            return True, None
+            # Do NOT silently fall back to demo mode — report the actual error
+            import traceback
+            traceback.print_exc()
+            print(f"[ERROR] Initialization failed: {e}")
+            return False, str(e)
 
     def query(self, user_query: str) -> Dict[str, Any]:
         if not self.initialized:

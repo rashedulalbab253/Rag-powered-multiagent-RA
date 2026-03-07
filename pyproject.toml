@@ -3,14 +3,14 @@ name = "context-engineering"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "crewai>=0.165.1",
     "crewai-tools>=0.0.1",
     "ipykernel>=6.30.1",
     "openai>=1.99.9",
-    "pymilvus>=2.6.0",
-    "tensorlake>=0.2.44",
+    "chromadb>=1.1.1",
+    "pymupdf>=1.26.0",
     "voyageai>=0.3.4",
     "zep-crewai>=1.0.0",
     "python-dotenv>=1.0.0",

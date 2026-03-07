@@ -1,0 +1,29 @@
+# ─── Web Framework ────────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# ─── Core Utilities ───────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
+requests>=2.31.0
+pydantic>=2.0.0
+pyyaml>=6.0.2
+
+# ─── LLM / Embedding Clients ──────────────────────────────────────────────────
+openai>=1.99.9
+voyageai>=0.3.4
+firecrawl-py>=4.3.0
+
+# ─── Memory ───────────────────────────────────────────────────────────────────
+zep-crewai>=1.0.0
+
+# ─── CrewAI (Agents) ──────────────────────────────────────────────────────────
+crewai>=0.165.1
+crewai-tools>=0.0.1
+
+# ─── RAG Stack (ChromaDB + PyMuPDF — Windows-compatible replacements) ─────────
+chromadb>=1.1.1
+pymupdf>=1.26.0
+
+# ─── Dev / Notebook ───────────────────────────────────────────────────────────
+ipykernel>=6.30.1
