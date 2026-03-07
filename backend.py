@@ -166,7 +166,7 @@ def initialize_assistant():
 
     raise HTTPException(
         status_code=503,
-        detail=f"Failed to initialize: {err}. Ensure all dependencies are installed (run: uv sync).",
+        detail=f"Failed to initialize: {err}. Ensure all dependencies are installed (run: pip install -r requirements.txt).",
     )
 
 

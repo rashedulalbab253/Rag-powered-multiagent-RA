@@ -102,37 +102,27 @@ docker run -p 8000:8000 --env-file .env \
 open http://localhost:8000
 ```
 
-### Option 2 — Local (Python 3.13 + uv)
+### Option 2 — Local (Python 3.12+ + pip)
 
 ```bash
-# 1. Install uv
-# Windows:
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-# macOS/Linux:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. Clone & setup
+# 1. Clone & setup
 git clone https://github.com/rashedulalbab253/Rag-powered-multiagent-RA.git
 cd Rag-powered-multiagent-RA
 
-# 3. Create virtual environment
-uv venv --python 3.13
+# 2. Create virtual environment
+python -m venv .venv
 .venv\Scripts\activate      # Windows
 # source .venv/bin/activate  # macOS/Linux
 
-# 4. Install dependencies
-$env:TMP="D:\tmp"; $env:TEMP="D:\tmp"   # Windows only (avoids C: disk-space issues)
-uv pip install fastapi uvicorn pydantic python-dotenv python-multipart \
-               crewai crewai-tools openai voyageai zep-crewai firecrawl-py \
-               chromadb pymupdf --only-binary :all:
+# 3. Install dependencies
+pip install -r requirements.txt
 
-# 5. Configure environment
+# 4. Configure environment
 cp .env.example .env
 # Edit .env with your API keys
 
-# 6. Start the server
-$env:PYTHONPATH = "."; $env:DEMO_MODE="false"
-.venv\Scripts\uvicorn.exe backend:app --host 0.0.0.0 --port 8000 --reload
+# 5. Start the server
+uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 
 # Open http://localhost:8000
 ```
