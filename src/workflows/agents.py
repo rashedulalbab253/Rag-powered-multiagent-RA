@@ -1,6 +1,8 @@
 import os
-from crewai import Agent
+from crewai import Agent, LLM
 from typing import Optional
+from dotenv import load_dotenv
+import litellm
 
 from src.config import ConfigLoader
 from src.tools import (
@@ -11,6 +13,24 @@ from src.tools import (
 )
 from src.rag import RAGPipeline
 from src.memory import ZepMemoryLayer
+
+# Configure litellm to retry on rate limits (Groq free tier = 6000 TPM)
+litellm.num_retries = 5
+litellm.request_timeout = 60
+litellm.drop_params = True  # drop unsupported params silently
+
+# Lazy-init: ensure load_dotenv() has run before reading the key
+_groq_llm_instance = None
+
+def _get_groq_llm() -> LLM:
+    global _groq_llm_instance
+    if _groq_llm_instance is None:
+        load_dotenv()
+        _groq_llm_instance = LLM(
+            model="groq/llama-3.1-8b-instant",
+            api_key=os.getenv("GROQ_API_KEY"),
+        )
+    return _groq_llm_instance
 
 
 class Agents:
@@ -26,6 +46,8 @@ class Agents:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=[rag_tool],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )
     
@@ -37,6 +59,8 @@ class Agents:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=[memory_tool],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )
     
@@ -48,6 +72,8 @@ class Agents:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=[web_search_tool],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )
     
@@ -59,6 +85,8 @@ class Agents:
             goal=config["goal"],
             backstory=config["backstory"],
             tools=[arxiv_tool],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )
     
@@ -68,6 +96,8 @@ class Agents:
             role=config["role"],
             goal=config["goal"],
             backstory=config["backstory"],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )
     
@@ -77,5 +107,7 @@ class Agents:
             role=config["role"],
             goal=config["goal"],
             backstory=config["backstory"],
+            llm=_get_groq_llm(),
+            max_retry_limit=3,
             verbose=config.get("verbose", True)
         )

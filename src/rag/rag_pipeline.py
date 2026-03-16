@@ -11,14 +11,14 @@ class RAGPipeline:
         self,
         tensorlake_api_key: Optional[str] = None,
         voyage_api_key: Optional[str] = None,
-        openai_api_key: Optional[str] = None,
+        groq_api_key: Optional[str] = None,
         milvus_db_path: str = "chroma_db",
         collection_name: str = "research_assistant"
     ):
         self.doc_parser = TensorLakeClient(api_key=tensorlake_api_key)
         self.embeddings = ContextualizedEmbeddings(api_key=voyage_api_key)
         self.vector_db = MilvusVectorDB(db_path=milvus_db_path, collection_name=collection_name)
-        self.generator = StructuredResponseGen(api_key=openai_api_key)
+        self.generator = StructuredResponseGen(api_key=groq_api_key)
         
     def process_documents(self, document_paths: List[str]) -> Dict[str, Any]:
         results = {

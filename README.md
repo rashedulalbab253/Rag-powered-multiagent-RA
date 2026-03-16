@@ -43,7 +43,7 @@ graph TD
     WEB --> EVAL
     ARX --> EVAL
 
-    EVAL --> SYN["✍️ Synthesizer Agent\nOpenAI GPT"]
+    EVAL --> SYN["✍️ Synthesizer Agent\nGroq LLaMA"]
     SYN --> Browser
 ```
 
@@ -71,7 +71,7 @@ context-engineering-workflow/
 │   ├── 📁 memory/
 │   │   └── memory.py                # Zep Cloud memory layer
 │   └── 📁 generation/
-│       └── generation.py            # OpenAI structured response gen
+│       └── generation.py            # Groq LLaMA structured response gen
 ├── 📁 config/
 │   ├── agents/research_agents.yaml  # Agent personas & goals
 │   └── tasks/research_tasks.yaml    # Task descriptions
@@ -122,9 +122,29 @@ cp .env.example .env
 # Edit .env with your API keys
 
 # 5. Start the server
-uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
+python backend.py
+# Or using uvicorn:
+# uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 
 # Open http://localhost:8000
+```
+
+### Option 3 — Local (uv package manager)
+
+```bash
+# 1. Clone & setup
+git clone https://github.com/rashedulalbab253/Rag-powered-multiagent-RA.git
+cd Rag-powered-multiagent-RA
+
+# 2. Sync dependencies (reads pyproject.toml & uv.lock)
+uv sync
+
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# 4. Start the server
+uv run backend.py
 ```
 
 ---
@@ -134,7 +154,7 @@ uvicorn backend:app --host 0.0.0.0 --port 8000 --reload
 Copy `.env.example` to `.env` and fill in your keys:
 
 ```env
-OPENAI_API_KEY=sk-...          # https://platform.openai.com
+GROQ_API_KEY=gsk_...           # https://console.groq.com
 VOYAGE_API_KEY=pa-...          # https://dashboard.voyageai.com
 ZEP_API_KEY=z_...              # https://www.getzep.com
 FIRECRAWL_API_KEY=fc-...       # https://www.firecrawl.dev
@@ -143,6 +163,32 @@ TENSORLAKE_API_KEY=tl_...      # https://tensorlake.ai  (optional, replaced by P
 # Set to "true" to use simulated responses (no API keys needed)
 DEMO_MODE=false
 ```
+
+---
+
+## 📖 Usage Workflow
+
+To get the best results from the Multi-Agent Research Assistant, follow this workflow:
+
+1.  **Initialize**: On the frontend, click the "Initialize" status indicator. This loads the models and connects to services.
+2.  **Upload PDF**: Use the upload area to provide your source document. It will be parsed and stored in ChromaDB.
+3.  **Research**: Enter your query in the chat box. The agents will coordinate to search the PDF, web, arXiv, and memory to provide a cited response.
+4.  **View Sources**: Click the "View Sources" bubble in the response to see exactly where the information came from.
+
+---
+
+## 🛠️ API & Development
+
+### API Documentation
+The FastAPI backend provides interactive documentation:
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+
+### Troubleshooting
+- **Port 8000 busy**: Change the port in `backend.py` or use `-p 8080:8000` in Docker.
+- **Initialization Error**: Ensure your `.env` keys are correct and you've run `pip install -r requirements.txt`.
+- **Zep Connection**: If using Zep Cloud, ensure your `ZEP_API_KEY` is active.
+- **Demo Mode**: If you lack API keys, set `DEMO_MODE=true` in `.env` to test the UI with mock data.
 
 ---
 
@@ -156,13 +202,13 @@ DEMO_MODE=false
 | **Web Search Agent** | Finds real-time web information via Firecrawl |
 | **ArXiv Agent** | Queries academic papers from arXiv |
 | **Evaluator Agent** | Scores and filters source relevance (0–1) |
-| **Synthesizer Agent** | Generates the final cited response via OpenAI |
+| **Synthesizer Agent** | Generates the final cited response via Groq |
 
 ### 2. 📚 Smart RAG Pipeline
 - **PDF Parsing**: PyMuPDF with sentence-boundary chunking
 - **Embeddings**: VoyageAI `voyage-context-3` (1024-dim)
 - **Vector Store**: ChromaDB (persistent, HNSW cosine similarity)
-- **Generation**: OpenAI GPT with structured JSON output
+- **Generation**: Groq LLaMA with structured JSON output
 
 ### 3. 🧠 Persistent Memory
 - Conversation history stored in **Zep Cloud**
@@ -234,5 +280,5 @@ This project is licensed under the MIT License.
 ---
 
 <div align="center">
-  <sub>Built with ❤️ using CrewAI, FastAPI, ChromaDB, VoyageAI, Zep, and OpenAI</sub>
+  <sub>Built with ❤️ using CrewAI, FastAPI, ChromaDB, VoyageAI, Zep, and Groq</sub>
 </div>

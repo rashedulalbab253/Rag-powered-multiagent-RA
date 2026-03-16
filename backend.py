@@ -57,7 +57,7 @@ class ResearchAssistant:
             self.flow = FlowClass(
                 tensorlake_api_key=os.getenv("TENSORLAKE_API_KEY"),
                 voyage_api_key=os.getenv("VOYAGE_API_KEY"),
-                openai_api_key=os.getenv("OPENAI_API_KEY"),
+                groq_api_key=os.getenv("GROQ_API_KEY"),
                 zep_api_key=os.getenv("ZEP_API_KEY"),
                 firecrawl_api_key=os.getenv("FIRECRAWL_API_KEY"),
                 milvus_db_path="chroma_db",
@@ -142,7 +142,7 @@ def get_status():
         "current_document": _state["current_document"],
         "chat_history_length": len(_state["chat_history"]),
         "api_keys": {
-            "OPENAI_API_KEY":     bool(os.getenv("OPENAI_API_KEY")),
+            "GROQ_API_KEY":       bool(os.getenv("GROQ_API_KEY")),
             "VOYAGE_API_KEY":     bool(os.getenv("VOYAGE_API_KEY")),
             "ZEP_API_KEY":        bool(os.getenv("ZEP_API_KEY")),
             "TENSORLAKE_API_KEY": bool(os.getenv("TENSORLAKE_API_KEY")),
